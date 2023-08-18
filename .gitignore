@@ -21,6 +21,10 @@
 # vendor/
 
 std/std
+mimc/mimc
+merkle/merkle
+bls/bls
+kzg/kzg
 
 *.log
 *.sh
