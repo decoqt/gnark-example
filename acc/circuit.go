@@ -13,18 +13,19 @@ import (
 	"github.com/consensys/gnark/std/algebra/sw_bls12377"
 	"github.com/consensys/gnark/std/commitments/kzg_bls12377"
 	"github.com/consensys/gnark/std/hash/mimc"
+	"github.com/consensys/gnark/std/math/bits"
 )
 
 var curveID = ecc.BW6_761
 var hashID = hash.MIMC_BW6_761
 
 const (
-	InputSize = 1
+	InputSize = 2
+	Depth     = 5
 )
 
 var (
-	depth    = 5
-	numNodes = 1 << depth
+	numNodes = 1 << (Depth)
 )
 
 type Circuit struct {
@@ -34,13 +35,6 @@ type Circuit struct {
 	Random       frontend.Variable `gnark:",public"`
 	VerifyKey    kzg_bls12377.VK   `gnark:",public"`
 	MerkleRoot   frontend.Variable `gnark:",public"`
-	NodeCount    frontend.Variable `gnark:",public"`
-}
-
-func (circuit *Circuit) allocate() {
-	for i := 0; i < InputSize; i++ {
-		circuit.MerkleProofs[i].Path = make([]frontend.Variable, depth+1)
-	}
 }
 
 func (circuit *Circuit) Define(api frontend.API) error {
@@ -49,13 +43,14 @@ func (circuit *Circuit) Define(api frontend.API) error {
 		return err
 	}
 
-	api.Println("res: ", circuit.Random)
 	rnd := frontend.Variable(circuit.Random)
 	for i := 0; i < InputSize; i++ {
-		res := api.And(circuit.NodeCount, rnd)
-		api.AssertIsEqual(res, circuit.MerkleProofs[i].Leaf)
-		api.Println("res: ", circuit.MerkleProofs[i].Leaf)
-		api.Println("res: ", res)
+		h.Reset()
+		h.Write(rnd)
+		rnd = h.Sum()
+		rndbit := bits.ToBinary(api, rnd)
+		d := bits.FromBinary(api, rndbit[:Depth])
+		api.AssertIsEqual(circuit.MerkleProofs[i].Leaf, d)
 
 		h.Reset()
 		h.Write(circuit.Commitments[i].X)
@@ -67,7 +62,6 @@ func (circuit *Circuit) Define(api frontend.API) error {
 		if i != 0 {
 			circuit.Commitments[0].AddAssign(api, circuit.Commitments[i])
 		}
-		rnd = api.Mul(rnd, rnd)
 	}
 
 	kzg_bls12377.Verify(api, circuit.Commitments[0], circuit.Proof, circuit.Random, circuit.VerifyKey)
@@ -85,8 +79,6 @@ func GenWithness() (witness.Witness, error) {
 	assignment.VerifyKey.G2[0].Assign(&pk.SRS.G2[0])
 	assignment.VerifyKey.G2[1].Assign(&pk.SRS.G2[1])
 
-	assignment.NodeCount = numNodes - 1
-
 	mod := curveID.ScalarField()
 	fieldSize := len(mod.Bytes())
 
@@ -96,13 +88,11 @@ func GenWithness() (witness.Witness, error) {
 	coms := make([]G1, numNodes)
 	pfs := make([]Proof, numNodes)
 
-	var rnd Fr
-	rnd.SetInt64(64 + 16 + 3)
+	var rndfr Fr
+	rndfr.SetRandom()
 	rndBig := new(big.Int)
-	rnd.BigInt(rndBig)
+	rndfr.BigInt(rndBig)
 	assignment.Random = rndBig
-
-	choose := new(big.Int).Set(rndBig)
 
 	h := hashID.New()
 
@@ -114,12 +104,12 @@ func GenWithness() (witness.Witness, error) {
 			return nil, err
 		}
 
-		pf, err := pk.Open(rnd, data)
+		pf, err := pk.Open(rndfr, data)
 		if err != nil {
 			return nil, err
 		}
 
-		err = pk.Verify(rnd, com, pf)
+		err = pk.Verify(rndfr, com, pf)
 		if err != nil {
 			return nil, err
 		}
@@ -134,12 +124,20 @@ func GenWithness() (witness.Witness, error) {
 	}
 
 	var accCom G1
+	rnd := new(big.Int).Set(rndBig)
+	max := new(big.Int).SetUint64(1<<Depth - 1)
 	for i := 0; i < InputSize; i++ {
+		h.Reset()
+		var rbuf bytes.Buffer
+		rbuf.Write(make([]byte, fieldSize-len(rnd.Bytes())))
+		rbuf.Write(rnd.Bytes())
+		h.Write(rbuf.Bytes())
+		sum := h.Sum(nil)
+		rnd.SetBytes(sum)
 
-		choosed := new(big.Int).And(choose, new(big.Int).SetInt64(int64(numNodes-1)))
+		choosed := new(big.Int).And(rnd, max)
 		pindex := choosed.Uint64()
-		fmt.Printf("choose point %d %d %v\n", i, pindex, choose)
-		choose.Mul(choose, choose)
+		fmt.Printf("choose point %d %d \n", i, pindex)
 
 		assignment.Commitments[i].Assign(&coms[pindex])
 		accCom.Add(&accCom, &coms[pindex])
@@ -157,18 +155,17 @@ func GenWithness() (witness.Witness, error) {
 
 		verified := merkletree.VerifyProof(hashID.New(), merkleRoot, merkleProof, pindex, numLeaves)
 		if !verified {
-			fmt.Printf("The merkle proof in plain go should pass")
+			return nil, fmt.Errorf("invalid merkle proof")
 		}
 
 		assignment.MerkleRoot = merkleRoot
 		assignment.MerkleProofs[i].Leaf = pindex
-		assignment.MerkleProofs[i].Path = make([]frontend.Variable, depth+1)
-		for j := 0; j < depth+1; j++ {
+		for j := 0; j < Depth+1; j++ {
 			assignment.MerkleProofs[i].Path[j] = merkleProof[j]
 		}
 	}
 
-	err = pk.Verify(rnd, accCom, accProof)
+	err = pk.Verify(rndfr, accCom, accProof)
 	if err != nil {
 		return nil, err
 	}

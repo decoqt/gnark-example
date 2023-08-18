@@ -25,6 +25,7 @@ mimc/mimc
 merkle/merkle
 bls/bls
 kzg/kzg
+choose/choose
 acc/acc
 
 *.log

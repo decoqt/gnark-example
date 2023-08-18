@@ -9,7 +9,7 @@ import (
 type MerkleCircuit struct {
 	// Path path of the Merkle proof
 	Leaf frontend.Variable
-	Path []frontend.Variable
+	Path [Depth + 1]frontend.Variable
 }
 
 // leafSum returns the hash created from data inserted to form a leaf.
@@ -49,6 +49,9 @@ func (mp *MerkleCircuit) VerifyProof(api frontend.API, h hash.Hash, root fronten
 	binLeaf := api.ToBinary(mp.Leaf, depth)
 
 	for i := 1; i < len(mp.Path); i++ { // the size of the loop is fixed -> one circuit per size
+		if mp.Path[i] == frontend.Variable(0) {
+			break
+		}
 		d1 := api.Select(binLeaf[i-1], mp.Path[i], sum)
 		d2 := api.Select(binLeaf[i-1], sum, mp.Path[i])
 		sum = nodeSum(api, h, d1, d2)
