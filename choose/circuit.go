@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"math/big"
 
@@ -17,13 +18,16 @@ var curveID = ecc.BW6_761
 var hashID = hash.MIMC_BW6_761
 
 const (
-	InputSize = 32
-	Depth     = 10
+	InputSize = 3
+	Depth     = 5
 )
+
+var max = new(big.Int).SetInt64(1<<Depth - 1)
 
 type Circuit struct {
 	Choose [InputSize]frontend.Variable
 	Random frontend.Variable `gnark:",public"`
+	Max    frontend.Variable `gnark:",public"`
 }
 
 func (circuit *Circuit) Define(api frontend.API) error {
@@ -32,18 +36,24 @@ func (circuit *Circuit) Define(api frontend.API) error {
 		return err
 	}
 
+	maxBits := api.ToBinary(circuit.Max, Depth)
+	//api.Println(maxBits)
+
 	res := frontend.Variable(circuit.Random)
 	for i := 0; i < InputSize; i++ {
 		h.Reset()
 		h.Write(res)
 		res = h.Sum()
 
-		rndbit := bits.ToBinary(api, res)
+		rndbit := api.ToBinary(res)
+		for j := 0; j < Depth; j++ {
+			rndbit[j] = api.And(rndbit[j], maxBits[j])
+		}
+
 		d := bits.FromBinary(api, rndbit[:Depth])
 
 		//api.Println(circuit.Random, res, circuit.Choose[i])
 		api.AssertIsEqual(circuit.Choose[i], d)
-
 	}
 
 	return nil
@@ -57,10 +67,13 @@ func GenWithness() (witness.Witness, error) {
 
 	h := hashID.New()
 
-	max := new(big.Int).SetInt64(1<<Depth - 1)
-	rnd := new(big.Int).SetInt64(30)
+	rnd, err := rand.Int(rand.Reader, mod)
+	if err != nil {
+		return nil, err
+	}
 
 	assignment.Random = new(big.Int).Set(rnd)
+	assignment.Max = new(big.Int).Set(max)
 
 	for i := 0; i < InputSize; i++ {
 		h.Reset()
@@ -70,11 +83,6 @@ func GenWithness() (witness.Witness, error) {
 
 		h.Write(buf.Bytes())
 		sum := h.Sum(nil)
-
-		hashInt := big.NewInt(0).SetBytes(sum)
-
-		fmt.Println(hashInt.String())
-
 		rnd.SetBytes(sum)
 
 		choosed := new(big.Int).And(rnd, max)

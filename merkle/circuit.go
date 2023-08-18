@@ -17,8 +17,12 @@ import (
 var curveID = ecc.BN254
 var hashID = hash.MIMC_BN254
 
-var numNodes = 64
-var proofIndex = 9
+const (
+	Depth = 5
+)
+
+var numNodes = 1 << 5
+var proofIndex = 3
 
 var depth int
 
@@ -49,7 +53,7 @@ func GenWithness() (witness.Witness, error) {
 	mod := curveID.ScalarField()
 	fieldSize := len(mod.Bytes())
 
-	fmt.Println("field size: ", fieldSize)
+	fmt.Printf("nodes: %d, field size: %d\n", numNodes, fieldSize)
 
 	for i := 0; i < numNodes; i++ {
 		leaf, _ := rand.Int(rand.Reader, mod)
@@ -69,6 +73,7 @@ func GenWithness() (witness.Witness, error) {
 	}
 
 	depth = len(merkleProof)
+	fmt.Printf("pindex:%d, depth: %d\n", proofIndex, depth)
 
 	var assignment Circuit
 	assignment.Leaf = proofIndex

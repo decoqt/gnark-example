@@ -25,16 +25,17 @@ const (
 )
 
 var (
-	numNodes = 1 << (Depth)
+	maxNodes = 1 << Depth
 )
 
 type Circuit struct {
 	MerkleProofs [InputSize]MerkleCircuit
 	Commitments  [InputSize]sw_bls12377.G1Affine
 	Proof        kzg_bls12377.OpeningProof
-	Random       frontend.Variable `gnark:",public"`
 	VerifyKey    kzg_bls12377.VK   `gnark:",public"`
+	Random       frontend.Variable `gnark:",public"`
 	MerkleRoot   frontend.Variable `gnark:",public"`
+	Max          frontend.Variable `gnark:",public"`
 }
 
 func (circuit *Circuit) Define(api frontend.API) error {
@@ -43,12 +44,17 @@ func (circuit *Circuit) Define(api frontend.API) error {
 		return err
 	}
 
+	api.Println(circuit.MerkleRoot)
+	maxBits := api.ToBinary(circuit.Max, Depth)
 	rnd := frontend.Variable(circuit.Random)
 	for i := 0; i < InputSize; i++ {
 		h.Reset()
 		h.Write(rnd)
 		rnd = h.Sum()
-		rndbit := bits.ToBinary(api, rnd)
+		rndbit := api.ToBinary(rnd)
+		for j := 0; j < Depth; j++ {
+			rndbit[j] = api.And(rndbit[j], maxBits[j])
+		}
 		d := bits.FromBinary(api, rndbit[:Depth])
 		api.AssertIsEqual(circuit.MerkleProofs[i].Leaf, d)
 
@@ -82,11 +88,11 @@ func GenWithness() (witness.Witness, error) {
 	mod := curveID.ScalarField()
 	fieldSize := len(mod.Bytes())
 
-	fmt.Printf("node count: %d, field size %d\n", numNodes, fieldSize)
+	fmt.Printf("node count: %d, field size %d\n", maxNodes, fieldSize)
 
-	comData := make([]byte, 0, numNodes*fieldSize)
-	coms := make([]G1, numNodes)
-	pfs := make([]Proof, numNodes)
+	comData := make([]byte, 0, maxNodes*fieldSize)
+	coms := make([]G1, maxNodes)
+	pfs := make([]Proof, maxNodes)
 
 	var rndfr Fr
 	rndfr.SetRandom()
@@ -97,7 +103,7 @@ func GenWithness() (witness.Witness, error) {
 	h := hashID.New()
 
 	var accProof Proof
-	for i := 0; i < int(numNodes); i++ {
+	for i := 0; i < int(maxNodes); i++ {
 		data := genRandom(1 * MaxFileSize)
 		com, err := pk.Commitment(data)
 		if err != nil {
@@ -123,9 +129,11 @@ func GenWithness() (witness.Witness, error) {
 		comData = append(comData, h.Sum(nil)...)
 	}
 
+	max := new(big.Int).SetUint64(uint64(maxNodes - 1))
+	assignment.Max = new(big.Int).Set(max)
+
 	var accCom G1
 	rnd := new(big.Int).Set(rndBig)
-	max := new(big.Int).SetUint64(1<<Depth - 1)
 	for i := 0; i < InputSize; i++ {
 		h.Reset()
 		var rbuf bytes.Buffer
@@ -161,7 +169,12 @@ func GenWithness() (witness.Witness, error) {
 		assignment.MerkleRoot = merkleRoot
 		assignment.MerkleProofs[i].Leaf = pindex
 		for j := 0; j < Depth+1; j++ {
-			assignment.MerkleProofs[i].Path[j] = merkleProof[j]
+			if j < len(merkleProof) {
+				fmt.Println(new(big.Int).SetBytes(merkleProof[j]).String())
+				assignment.MerkleProofs[i].Path[j] = merkleProof[j]
+			} else {
+				assignment.MerkleProofs[i].Path[j] = 0
+			}
 		}
 	}
 
