@@ -19,12 +19,13 @@ var curveID = ecc.BW6_761
 var hashID = hash.MIMC_BW6_761
 
 const (
-	InputSize = 3
+	InputSize = 1
 )
 
-var proofIndexes = []uint64{9, 22, 31}
-
-var depth = 5
+var (
+	depth    = 5
+	numNodes = 1 << depth
+)
 
 type Circuit struct {
 	MerkleProofs [InputSize]MerkleCircuit
@@ -33,6 +34,7 @@ type Circuit struct {
 	Random       frontend.Variable `gnark:",public"`
 	VerifyKey    kzg_bls12377.VK   `gnark:",public"`
 	MerkleRoot   frontend.Variable `gnark:",public"`
+	NodeCount    frontend.Variable `gnark:",public"`
 }
 
 func (circuit *Circuit) allocate() {
@@ -47,7 +49,14 @@ func (circuit *Circuit) Define(api frontend.API) error {
 		return err
 	}
 
+	api.Println("res: ", circuit.Random)
+	rnd := frontend.Variable(circuit.Random)
 	for i := 0; i < InputSize; i++ {
+		res := api.And(circuit.NodeCount, rnd)
+		api.AssertIsEqual(res, circuit.MerkleProofs[i].Leaf)
+		api.Println("res: ", circuit.MerkleProofs[i].Leaf)
+		api.Println("res: ", res)
+
 		h.Reset()
 		h.Write(circuit.Commitments[i].X)
 		h.Write(circuit.Commitments[i].Y)
@@ -58,6 +67,7 @@ func (circuit *Circuit) Define(api frontend.API) error {
 		if i != 0 {
 			circuit.Commitments[0].AddAssign(api, circuit.Commitments[i])
 		}
+		rnd = api.Mul(rnd, rnd)
 	}
 
 	kzg_bls12377.Verify(api, circuit.Commitments[0], circuit.Proof, circuit.Random, circuit.VerifyKey)
@@ -75,10 +85,11 @@ func GenWithness() (witness.Witness, error) {
 	assignment.VerifyKey.G2[0].Assign(&pk.SRS.G2[0])
 	assignment.VerifyKey.G2[1].Assign(&pk.SRS.G2[1])
 
+	assignment.NodeCount = numNodes - 1
+
 	mod := curveID.ScalarField()
 	fieldSize := len(mod.Bytes())
 
-	numNodes := 1 << depth
 	fmt.Printf("node count: %d, field size %d\n", numNodes, fieldSize)
 
 	comData := make([]byte, 0, numNodes*fieldSize)
@@ -86,10 +97,12 @@ func GenWithness() (witness.Witness, error) {
 	pfs := make([]Proof, numNodes)
 
 	var rnd Fr
-	rnd.SetRandom()
+	rnd.SetInt64(64 + 16 + 3)
 	rndBig := new(big.Int)
 	rnd.BigInt(rndBig)
 	assignment.Random = rndBig
+
+	choose := new(big.Int).Set(rndBig)
 
 	h := hashID.New()
 
@@ -122,7 +135,12 @@ func GenWithness() (witness.Witness, error) {
 
 	var accCom G1
 	for i := 0; i < InputSize; i++ {
-		pindex := proofIndexes[i]
+
+		choosed := new(big.Int).And(choose, new(big.Int).SetInt64(int64(numNodes-1)))
+		pindex := choosed.Uint64()
+		fmt.Printf("choose point %d %d %v\n", i, pindex, choose)
+		choose.Mul(choose, choose)
+
 		assignment.Commitments[i].Assign(&coms[pindex])
 		accCom.Add(&accCom, &coms[pindex])
 
