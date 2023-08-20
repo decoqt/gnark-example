@@ -8,10 +8,10 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/hash"
+	"github.com/consensys/gnark/backend/hint"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/hash/mimc"
-	"github.com/consensys/gnark/std/math/bits"
 )
 
 var curveID = ecc.BW6_761
@@ -22,7 +22,18 @@ const (
 	Depth     = 5
 )
 
-var max = new(big.Int).SetInt64(1<<Depth - 1)
+var max = new(big.Int).SetInt64(1<<Depth + 11)
+
+func init() {
+	hint.Register(ModHint)
+}
+
+func ModHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {
+	for i := 0; i < len(results); i++ {
+		results[i].Mod(inputs[i+1], inputs[0])
+	}
+	return nil
+}
 
 type Circuit struct {
 	Choose [InputSize]frontend.Variable
@@ -36,24 +47,20 @@ func (circuit *Circuit) Define(api frontend.API) error {
 		return err
 	}
 
-	maxBits := api.ToBinary(circuit.Max, Depth)
-	//api.Println(maxBits)
-
 	res := frontend.Variable(circuit.Random)
 	for i := 0; i < InputSize; i++ {
 		h.Reset()
 		h.Write(res)
 		res = h.Sum()
 
-		rndbit := api.ToBinary(res)
-		for j := 0; j < Depth; j++ {
-			rndbit[j] = api.And(rndbit[j], maxBits[j])
+		resbig, err := api.Compiler().NewHint(ModHint, 1, circuit.Max, res)
+		if err != nil {
+			panic(err)
 		}
 
-		d := bits.FromBinary(api, rndbit[:Depth])
-
-		//api.Println(circuit.Random, res, circuit.Choose[i])
-		api.AssertIsEqual(circuit.Choose[i], d)
+		//api.Println(res, resbig[0], circuit.Choose[i])
+		api.AssertIsLessOrEqual(circuit.Choose[i], circuit.Max)
+		api.AssertIsEqual(circuit.Choose[i], resbig[0])
 	}
 
 	return nil
@@ -85,7 +92,7 @@ func GenWithness() (witness.Witness, error) {
 		sum := h.Sum(nil)
 		rnd.SetBytes(sum)
 
-		choosed := new(big.Int).And(rnd, max)
+		choosed := new(big.Int).Mod(rnd, max)
 
 		fmt.Println("choose: ", choosed, rnd)
 		assignment.Choose[i] = choosed
