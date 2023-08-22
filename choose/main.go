@@ -16,7 +16,6 @@ func main() {
 	}
 
 	var circuit Circuit
-	//circuit.allocate()
 	r1cs, err := frontend.Compile(curveID.ScalarField(), r1cs.NewBuilder, &circuit)
 	if err != nil {
 		fmt.Printf("compile fail: %v\n", err)
