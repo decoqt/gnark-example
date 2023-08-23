@@ -1,4 +1,4 @@
-module snark
+module github.com/yydfjt/gnark-example
 
 go 1.20
 

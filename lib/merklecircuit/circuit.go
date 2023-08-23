@@ -1,12 +1,14 @@
-package main
+package merklecircuit
 
 import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/hash"
 )
 
+const Depth = 10
+
 // MerkleProof stores the path, the root hash and an helper for the Merkle proof.
-type MerkleCircuit struct {
+type Circuit struct {
 	// Path path of the Merkle proof
 	Leaf frontend.Variable
 	Path [Depth + 1]frontend.Variable
@@ -38,7 +40,7 @@ func nodeSum(api frontend.API, h hash.Hash, a, b frontend.Variable) frontend.Var
 // true if the first element of the proof set is a leaf of data in the Merkle
 // root. False is returned if the proof set or Merkle root is nil, and if
 // 'numLeaves' equals 0.
-func (mp *MerkleCircuit) VerifyProof(api frontend.API, h hash.Hash, root frontend.Variable) {
+func (mp *Circuit) VerifyProof(api frontend.API, h hash.Hash, root frontend.Variable) {
 
 	depth := len(mp.Path) - 1
 	sum := leafSum(api, h, mp.Path[0])

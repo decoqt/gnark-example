@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/accumulator/merkletree"
+	"github.com/yydfjt/gnark-example/lib/kzg"
+	"github.com/yydfjt/gnark-example/lib/merklecircuit"
+	"github.com/yydfjt/gnark-example/lib/merkletree"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark/backend/witness"
@@ -29,7 +32,7 @@ var (
 )
 
 type Circuit struct {
-	MerkleProofs [InputSize]MerkleCircuit
+	MerkleProofs [InputSize]merklecircuit.Circuit
 	Commitments  [InputSize]sw_bls12377.G1Affine
 	Proof        kzg_bls12377.OpeningProof
 	VerifyKey    kzg_bls12377.VK   `gnark:",public"`
@@ -76,7 +79,7 @@ func (circuit *Circuit) Define(api frontend.API) error {
 
 func GenWithness() (witness.Witness, error) {
 	var assignment Circuit
-	pk, err := GenKey()
+	pk, err := kzg.GenKey()
 	if err != nil {
 		return nil, err
 	}
@@ -91,10 +94,10 @@ func GenWithness() (witness.Witness, error) {
 	fmt.Printf("node count: %d, field size %d\n", maxNodes, fieldSize)
 
 	comData := make([]byte, 0, maxNodes*fieldSize)
-	coms := make([]G1, maxNodes)
-	pfs := make([]Proof, maxNodes)
+	coms := make([]kzg.G1, maxNodes)
+	pfs := make([]kzg.Proof, maxNodes)
 
-	var rndfr Fr
+	var rndfr kzg.Fr
 	rndfr.SetRandom()
 	rndBig := new(big.Int)
 	rndfr.BigInt(rndBig)
@@ -102,9 +105,9 @@ func GenWithness() (witness.Witness, error) {
 
 	h := hashID.New()
 
-	var accProof Proof
+	var accProof kzg.Proof
 	for i := 0; i < int(maxNodes); i++ {
-		data := genRandom(1 * MaxFileSize)
+		data := kzg.GenRandom(1 * kzg.MaxFileSize)
 		com, err := pk.Commitment(data)
 		if err != nil {
 			return nil, err
@@ -132,7 +135,7 @@ func GenWithness() (witness.Witness, error) {
 	max := new(big.Int).SetUint64(uint64(maxNodes - 1))
 	assignment.Max = new(big.Int).Set(max)
 
-	var accCom G1
+	var accCom kzg.G1
 	rnd := new(big.Int).Set(rndBig)
 	for i := 0; i < InputSize; i++ {
 		h.Reset()
@@ -168,7 +171,7 @@ func GenWithness() (witness.Witness, error) {
 
 		assignment.MerkleRoot = merkleRoot
 		assignment.MerkleProofs[i].Leaf = pindex
-		for j := 0; j < Depth+1; j++ {
+		for j := 0; j < len(assignment.MerkleProofs[i].Path); j++ {
 			if j < len(merkleProof) {
 				fmt.Println(new(big.Int).SetBytes(merkleProof[j]).String())
 				assignment.MerkleProofs[i].Path[j] = merkleProof[j]

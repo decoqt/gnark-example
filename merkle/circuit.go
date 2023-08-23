@@ -5,7 +5,8 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/accumulator/merkletree"
+	"github.com/yydfjt/gnark-example/lib/merkletree"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark/backend/witness"

@@ -8,6 +8,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/sw_bls12377"
 	"github.com/consensys/gnark/std/commitments/kzg_bls12377"
+	"github.com/yydfjt/gnark-example/lib/kzg"
 )
 
 var curveID = ecc.BW6_761
@@ -25,18 +26,18 @@ func (circuit *Circuit) Define(api frontend.API) error {
 }
 
 func GenWithness() (witness.Witness, error) {
-	pk, err := GenKey()
+	pk, err := kzg.GenKey()
 	if err != nil {
 		return nil, err
 	}
 
-	data := genRandom(1 * MaxFileSize)
+	data := kzg.GenRandom(1 * kzg.MaxFileSize)
 	com, err := pk.Commitment(data)
 	if err != nil {
 		return nil, err
 	}
 
-	var rnd Fr
+	var rnd kzg.Fr
 	rnd.SetRandom()
 
 	pf, err := pk.Open(rnd, data)

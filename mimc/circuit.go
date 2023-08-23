@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	bls12377 "github.com/consensys/gnark-crypto/ecc/bls12-377"
 	"github.com/consensys/gnark-crypto/hash"
@@ -33,6 +35,7 @@ func GenWithness() (witness.Witness, error) {
 	}
 
 	h := hashID.New()
+	fmt.Println(hashID.String(), hashID.Size(), h.BlockSize(), h.Size())
 	preImageX := pre.X.Bytes()
 	preImageY := pre.Y.Bytes()
 	h.Write(preImageX[:])
