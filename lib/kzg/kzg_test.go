@@ -1,9 +1,11 @@
-package main
+package kzg
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestKZG(t *testing.T) {
-	data := genRandom(1*MaxFileSize - 1)
+	data := GenRandom(1*MaxFileSize - 1)
 
 	pk, err := GenKey()
 	if err != nil {
@@ -41,7 +43,7 @@ func TestMultiKZG(t *testing.T) {
 	var accCom G1
 	var accProof Proof
 	for i := 0; i < 2; i++ {
-		data := genRandom(1 * MaxFileSize)
+		data := GenRandom(1 * MaxFileSize)
 
 		com, err := pk.Commitment(data)
 		if err != nil {

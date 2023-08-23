@@ -1,4 +1,4 @@
-package main
+package kzg
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	ShardingLen = 127
+	ShardingLen = 31
 	MaxShards   = 1024
 	MaxFileSize = MaxShards * ShardingLen
 )
@@ -65,7 +65,7 @@ func (pk *PublicKey) Commitment(d []byte) (G1, error) {
 		return G1{}, fmt.Errorf("data size too large")
 	}
 
-	shards := split(d)
+	shards := Split(d)
 
 	return kzg.Commit(shards, pk.SRS)
 }
@@ -75,7 +75,7 @@ func (pk *PublicKey) Open(rnd Fr, d []byte) (Proof, error) {
 		return Proof{}, fmt.Errorf("data size too large")
 	}
 
-	shards := split(d)
+	shards := Split(d)
 	return kzg.Open(shards, rnd, pk.SRS)
 }
 
