@@ -157,14 +157,14 @@ func GenWithness() (witness.Witness, error) {
 		accProof.H.Add(&accProof.H, &pfs[pindex].H)
 
 		buf := bytes.NewBuffer(comData)
-		merkleRoot, merkleProof, numLeaves, err := merkletree.BuildReaderProof(buf, hashID.New(), fieldSize, pindex)
+		merkleRoot, merkleProof, _, err := merkletree.BuildReaderProof(buf, hashID.New(), fieldSize, pindex)
 		if err != nil {
 			return nil, err
 		}
 
 		fmt.Printf("merkle index %d, depth %d leaf %d, root %d\n", pindex, len(merkleProof), len(merkleProof[0]), len(merkleRoot))
 
-		verified := merkletree.VerifyProof(hashID.New(), merkleRoot, merkleProof, pindex, numLeaves)
+		verified := merkletree.VerifyProof(hashID.New(), merkleRoot, merkleProof, pindex)
 		if !verified {
 			return nil, fmt.Errorf("invalid merkle proof")
 		}

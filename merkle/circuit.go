@@ -22,8 +22,8 @@ const (
 	Depth = 5
 )
 
-var numNodes = 1 << 5
-var proofIndex = 3
+var numNodes = 1<<5 + 8
+var proofIndex = 1<<5 + 1
 
 var depth int
 
@@ -63,12 +63,12 @@ func GenWithness() (witness.Witness, error) {
 		buf.Write(b)
 	}
 
-	merkleRoot, merkleProof, numLeaves, err := merkletree.BuildReaderProof(&buf, hashID.New(), fieldSize, uint64(proofIndex))
+	merkleRoot, merkleProof, _, err := merkletree.BuildReaderProof(&buf, hashID.New(), fieldSize, uint64(proofIndex))
 	if err != nil {
 		return nil, err
 	}
 
-	verified := merkletree.VerifyProof(hashID.New(), merkleRoot, merkleProof, uint64(proofIndex), numLeaves)
+	verified := merkletree.VerifyProof(hashID.New(), merkleRoot, merkleProof, uint64(proofIndex))
 	if !verified {
 		fmt.Printf("The merkle proof in plain go should pass")
 	}
