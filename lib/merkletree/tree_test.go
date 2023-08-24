@@ -84,6 +84,32 @@ func TestMerkelProof(t *testing.T) {
 	}
 }
 
+func TestMerkelRoot(t *testing.T) {
+	var numNodes = 1<<5 + 1<<4
+	fmt.Printf("nodes: %d\n", numNodes)
+
+	t1 := New(sha256.New())
+	t2 := NewRTree(sha256.New())
+
+	for i := 0; i < numNodes; i++ {
+		b := GenRandom(segSize)
+		t1.Push(b)
+		t2.Push(b)
+
+		if !bytes.Equal(t1.Root(), t2.Root()) {
+			t.Fatal("unequal root at: ", i)
+		}
+	}
+
+	if !bytes.Equal(t1.Root(), t1.Root()) {
+		t.Fatal("unequal root self")
+	}
+
+	if !bytes.Equal(t1.Root(), t2.Root()) {
+		t.Fatal("unequal root")
+	}
+}
+
 func TestBits(t *testing.T) {
 	pindex := 13
 

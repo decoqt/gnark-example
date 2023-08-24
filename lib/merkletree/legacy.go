@@ -10,12 +10,12 @@ import (
 	"io"
 )
 
-func (t *Tree) Legacy_Prove() (merkleRoot []byte, proofSet [][]byte, proofIndex uint64, numLeaves uint64) {
+func (t *ProofTree) Legacy_Prove() (merkleRoot []byte, proofSet [][]byte, proofIndex uint64, numLeaves uint64) {
 	if !t.proofTree {
 		panic("wrong usage: can't call prove on a tree if SetIndex wasn't called")
 	}
 
-	// Return nil if the Tree is empty, or if the proofIndex hasn't yet been
+	// Return nil if the ProofTree is empty, or if the proofIndex hasn't yet been
 	// reached.
 	if t.head == nil || len(t.proofSet) == 0 {
 		return t.Root(), nil, t.proofIndex, t.currentIndex
@@ -56,7 +56,7 @@ func (t *Tree) Legacy_Prove() (merkleRoot []byte, proofSet [][]byte, proofIndex 
 
 	// The current subtree must be the subtree containing the proof index. This
 	// subtree does not need an entry, as the entry was created during the
-	// construction of the Tree. Instead, skip to the next subtree.
+	// construction of the ProofTree. Instead, skip to the next subtree.
 	current = current.next
 
 	// All remaining subtrees will be added to the proof set as a left sibling,
@@ -68,7 +68,7 @@ func (t *Tree) Legacy_Prove() (merkleRoot []byte, proofSet [][]byte, proofIndex 
 	return t.Root(), proofSet, t.proofIndex, t.currentIndex
 }
 
-func (t *Tree) Legacy_Root() []byte {
+func (t *ProofTree) Legacy_Root() []byte {
 	if t.head == nil {
 		return nil
 	}

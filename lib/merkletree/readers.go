@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-func (t *Tree) ReadAll(r io.Reader, segmentSize int) error {
+func (t *ProofTree) ReadAll(r io.Reader, segmentSize int) error {
 	for {
 		segment := make([]byte, segmentSize)
 		n, readErr := io.ReadFull(r, segment)

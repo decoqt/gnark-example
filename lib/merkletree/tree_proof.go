@@ -8,10 +8,7 @@ import (
 	"hash"
 )
 
-// not zero here
-var defaultValue = []byte("0x10110111")
-
-type Tree struct {
+type ProofTree struct {
 	head *subTree
 	hash hash.Hash
 
@@ -57,15 +54,13 @@ func joinSubTrees(h hash.Hash, a, b *subTree) *subTree {
 	}
 }
 
-func New(h hash.Hash) *Tree {
-	padding := make([]byte, h.Size()-len(defaultValue))
-	defaultValue = append(padding, defaultValue...)
-	return &Tree{
+func New(h hash.Hash) *ProofTree {
+	return &ProofTree{
 		hash: h,
 	}
 }
 
-func (t *Tree) Push(data []byte) {
+func (t *ProofTree) Push(data []byte) {
 	if t.currentIndex == t.proofIndex {
 		t.proofSet = append(t.proofSet, data)
 	}
@@ -81,16 +76,16 @@ func (t *Tree) Push(data []byte) {
 	t.currentIndex++
 }
 
-func (t *Tree) SetIndex(i uint64) error {
+func (t *ProofTree) SetIndex(i uint64) error {
 	if t.head != nil {
-		return errors.New("cannot call SetIndex on Tree if Tree has not been reset")
+		return errors.New("cannot call SetIndex on ProofTree if ProofTree has not been reset")
 	}
 	t.proofTree = true
 	t.proofIndex = i
 	return nil
 }
 
-func (t *Tree) joinAllSubTrees() {
+func (t *ProofTree) joinAllSubTrees() {
 	for t.head.next != nil && t.head.height == t.head.next.height {
 		if t.head.height == len(t.proofSet)-1 {
 			leaves := uint64(1 << uint(t.head.height))
@@ -106,7 +101,7 @@ func (t *Tree) joinAllSubTrees() {
 	}
 }
 
-func (t *Tree) joinAndFillSubTrees(h hash.Hash, a, b *subTree, proofSet [][]byte) (*subTree, [][]byte) {
+func (t *ProofTree) joinAndFillSubTrees(h hash.Hash, a, b *subTree, proofSet [][]byte) (*subTree, [][]byte) {
 	nb := &subTree{
 		height: b.height,
 		sum:    make([]byte, len(b.sum)),
@@ -116,9 +111,9 @@ func (t *Tree) joinAndFillSubTrees(h hash.Hash, a, b *subTree, proofSet [][]byte
 	for nb.height < a.height {
 		//fmt.Printf("start: %d, height:%d, plen: %d\n", b.height, nb.height, len(proofSet)-1)
 		if nb.height == len(proofSet)-1 {
-			proofSet = append(proofSet, defaultValue)
+			proofSet = append(proofSet, nb.sum)
 		}
-		nb.sum = nodeSum(h, nb.sum, defaultValue)
+		nb.sum = nodeSum(h, nb.sum, nb.sum)
 		nb.height++
 	}
 
@@ -140,7 +135,7 @@ func (t *Tree) joinAndFillSubTrees(h hash.Hash, a, b *subTree, proofSet [][]byte
 	}, proofSet
 }
 
-func (t *Tree) Root() []byte {
+func (t *ProofTree) Root() []byte {
 	if t.head == nil {
 		return nil
 	}
@@ -152,12 +147,12 @@ func (t *Tree) Root() []byte {
 	return append(current.sum[:0:0], current.sum...)
 }
 
-func (t *Tree) Prove() (merkleRoot []byte, proofSet [][]byte, proofIndex uint64, numLeaves uint64) {
+func (t *ProofTree) Prove() (merkleRoot []byte, proofSet [][]byte, proofIndex uint64, numLeaves uint64) {
 	if !t.proofTree {
 		panic("wrong usage: can't call prove on a tree if SetIndex wasn't called")
 	}
 
-	// Return nil if the Tree is empty, or if the proofIndex hasn't yet been
+	// Return nil if the ProofTree is empty, or if the proofIndex hasn't yet been
 	// reached.
 	if t.head == nil || len(t.proofSet) == 0 {
 		return t.Root(), nil, t.proofIndex, t.currentIndex
