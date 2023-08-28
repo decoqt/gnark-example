@@ -1,10 +1,12 @@
 package main
 
 import (
-	"fmt"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	bls12377 "github.com/consensys/gnark-crypto/ecc/bls12-377"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/kzg"
 	"github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/frontend"
@@ -12,40 +14,65 @@ import (
 	"github.com/consensys/gnark/std/hash/mimc"
 )
 
+const InputSize = 10
+
 var curveID = ecc.BW6_761
 var hashID = hash.MIMC_BW6_761
 
 type Circuit struct {
-	PreImage sw_bls12377.G1Affine
-	Hash     frontend.Variable `gnark:",public"`
+	Value [InputSize]frontend.Variable
+	G1    [InputSize]sw_bls12377.G1Affine
+	Sum   sw_bls12377.G1Affine `gnark:",public"`
+	Hash  frontend.Variable    `gnark:",public"`
 }
 
 func (circuit *Circuit) Define(api frontend.API) error {
 	mimc, _ := mimc.NewMiMC(api)
-	mimc.Write(circuit.PreImage.X)
-	mimc.Write(circuit.PreImage.Y)
+	mimc.Write(circuit.Value[0])
+	circuit.G1[0].ScalarMul(api, circuit.G1[0], circuit.Value[0])
+
+	for i := 1; i < InputSize; i++ {
+		mimc.Write(circuit.Value[i])
+		circuit.G1[i].ScalarMul(api, circuit.G1[i], circuit.Value[i])
+		circuit.G1[0].AddAssign(api, circuit.G1[i])
+	}
+	circuit.Sum.AssertIsEqual(api, circuit.G1[0])
 	api.AssertIsEqual(circuit.Hash, mimc.Sum())
 	return nil
 }
 
 func GenWithness() (witness.Witness, error) {
-	pre, err := bls12377.HashToG1([]byte("test"), []byte("test"))
+	var assignment Circuit
+
+	alpha := big.NewInt(12345678)
+	kzgSRS, err := kzg.NewSRS(InputSize, alpha)
 	if err != nil {
 		return nil, err
 	}
 
 	h := hashID.New()
-	fmt.Println(hashID.String(), hashID.Size(), h.BlockSize(), h.Size())
-	preImageX := pre.X.Bytes()
-	preImageY := pre.Y.Bytes()
-	h.Write(preImageX[:])
-	h.Write(preImageY[:])
+	mod := curveID.ScalarField()
+	fieldSize := len(mod.Bytes())
 
-	res := h.Sum(nil)
+	var sum, tmp bls12377.G1Affine
+	var value fr.Element
+	for i := 0; i < InputSize; i++ {
+		value.SetRandom()
+		bigval := new(big.Int)
+		value.BigInt(bigval)
 
-	var assignment Circuit
-	assignment.PreImage.Assign(&pre)
-	assignment.Hash = res
+		assignment.Value[i] = bigval
+		assignment.G1[i].Assign(&kzgSRS.G1[i])
+		tmp.ScalarMultiplication(&kzgSRS.G1[i], bigval)
+		sum.Add(&sum, &tmp)
+
+		bval := bigval.Bytes()
+		bval = append(make([]byte, fieldSize-len(bval)), bval...)
+		h.Write(bval)
+	}
+	hsum := h.Sum(nil)
+	assignment.Sum.Assign(&sum)
+	assignment.Hash = hsum
 
 	witness, err := frontend.NewWitness(&assignment, curveID.ScalarField())
 	if err != nil {
