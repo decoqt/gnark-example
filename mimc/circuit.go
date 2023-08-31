@@ -21,23 +21,25 @@ var hashID = hash.MIMC_BW6_761
 
 type Circuit struct {
 	Value [InputSize]frontend.Variable
-	G1    [InputSize]sw_bls12377.G1Affine
-	Sum   sw_bls12377.G1Affine `gnark:",public"`
-	Hash  frontend.Variable    `gnark:",public"`
+	G1    [InputSize - 1]sw_bls12377.G1Affine // omit first one is G1 one
+	Sum   sw_bls12377.G1Affine                `gnark:",public"`
+	Hash  frontend.Variable                   `gnark:",public"`
+	One   sw_bls12377.G1Affine                `gnark:",public"`
 }
 
 func (circuit *Circuit) Define(api frontend.API) error {
 	mimc, _ := mimc.NewMiMC(api)
 	mimc.Write(circuit.Value[0])
-	circuit.G1[0].ScalarMul(api, circuit.G1[0], circuit.Value[0])
+	circuit.One.ScalarMul(api, circuit.One, circuit.Value[0])
 
 	for i := 1; i < InputSize; i++ {
 		mimc.Write(circuit.Value[i])
-		circuit.G1[i].ScalarMul(api, circuit.G1[i], circuit.Value[i])
-		circuit.G1[0].AddAssign(api, circuit.G1[i])
+		circuit.G1[i-1].ScalarMul(api, circuit.G1[i-1], circuit.Value[i])
+		circuit.One.AddAssign(api, circuit.G1[i-1])
 	}
-	circuit.Sum.AssertIsEqual(api, circuit.G1[0])
+	circuit.Sum.AssertIsEqual(api, circuit.One)
 	api.AssertIsEqual(circuit.Hash, mimc.Sum())
+
 	return nil
 }
 
@@ -62,7 +64,12 @@ func GenWithness() (witness.Witness, error) {
 		value.BigInt(bigval)
 
 		assignment.Value[i] = bigval
-		assignment.G1[i].Assign(&kzgSRS.G1[i])
+		if i == 0 {
+			assignment.One.Assign(&kzgSRS.G1[0])
+		} else {
+			assignment.G1[i-1].Assign(&kzgSRS.G1[i])
+		}
+
 		tmp.ScalarMultiplication(&kzgSRS.G1[i], bigval)
 		sum.Add(&sum, &tmp)
 
