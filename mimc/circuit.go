@@ -6,11 +6,11 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	bls12377 "github.com/consensys/gnark-crypto/ecc/bls12-377"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/kzg"
 	"github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/std/algebra/sw_bls12377"
+	"github.com/consensys/gnark/std/algebra/native/sw_bls12377"
 	"github.com/consensys/gnark/std/hash/mimc"
 )
 
@@ -65,12 +65,12 @@ func GenWithness() (witness.Witness, error) {
 
 		assignment.Value[i] = bigval
 		if i == 0 {
-			assignment.One.Assign(&kzgSRS.G1[0])
+			assignment.One.Assign(&kzgSRS.Pk.G1[0])
 		} else {
-			assignment.G1[i-1].Assign(&kzgSRS.G1[i])
+			assignment.G1[i-1].Assign(&kzgSRS.Pk.G1[i])
 		}
 
-		tmp.ScalarMultiplication(&kzgSRS.G1[i], bigval)
+		tmp.ScalarMultiplication(&kzgSRS.Pk.G1[i], bigval)
 		sum.Add(&sum, &tmp)
 
 		bval := bigval.Bytes()

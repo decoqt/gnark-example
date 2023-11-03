@@ -6,7 +6,7 @@ import (
 
 	bls12377 "github.com/consensys/gnark-crypto/ecc/bls12-377"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/kzg"
 )
 
 const (
@@ -34,9 +34,7 @@ type VerifyingKey struct {
 }
 
 type PublicKey struct {
-	SRS *kzg.SRS
-	Pk  ProvingKey
-	Vk  VerifyingKey
+	*kzg.SRS
 }
 
 func GenKey() (*PublicKey, error) {
@@ -45,18 +43,9 @@ func GenKey() (*PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	pk := ProvingKey{
-		G1: kzgSRS.G1,
-	}
-	vk := VerifyingKey{
-		G1: kzgSRS.G1[0],
-		G2: kzgSRS.G2,
-	}
 
 	return &PublicKey{
 		SRS: kzgSRS,
-		Pk:  pk,
-		Vk:  vk,
 	}, nil
 }
 
@@ -67,7 +56,7 @@ func (pk *PublicKey) Commitment(d []byte) (G1, error) {
 
 	shards := Split(d)
 
-	return kzg.Commit(shards, pk.SRS)
+	return kzg.Commit(shards, pk.SRS.Pk)
 }
 
 func (pk *PublicKey) Open(rnd Fr, d []byte) (Proof, error) {
@@ -76,9 +65,9 @@ func (pk *PublicKey) Open(rnd Fr, d []byte) (Proof, error) {
 	}
 
 	shards := Split(d)
-	return kzg.Open(shards, rnd, pk.SRS)
+	return kzg.Open(shards, rnd, pk.SRS.Pk)
 }
 
 func (pk *PublicKey) Verify(rnd Fr, commit G1, pf Proof) error {
-	return kzg.Verify(&commit, &pf, rnd, pk.SRS)
+	return kzg.Verify(&commit, &pf, rnd, pk.SRS.Vk)
 }

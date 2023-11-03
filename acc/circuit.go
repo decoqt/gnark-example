@@ -13,8 +13,7 @@ import (
 	"github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/std/algebra/sw_bls12377"
-	"github.com/consensys/gnark/std/commitments/kzg_bls12377"
+	"github.com/consensys/gnark/std/algebra/native/sw_bls12377"
 	"github.com/consensys/gnark/std/hash/mimc"
 	"github.com/consensys/gnark/std/math/bits"
 )
@@ -34,8 +33,8 @@ var (
 type Circuit struct {
 	MerkleProofs [InputSize]merklecircuit.Circuit
 	Commitments  [InputSize]sw_bls12377.G1Affine
-	Proof        kzg_bls12377.OpeningProof
-	VerifyKey    kzg_bls12377.VK   `gnark:",public"`
+	Proof        kzg.OpeningProof
+	VerifyKey    kzg.VK            `gnark:",public"`
 	Random       frontend.Variable `gnark:",public"`
 	MerkleRoot   frontend.Variable `gnark:",public"`
 	Max          frontend.Variable `gnark:",public"`
@@ -73,7 +72,7 @@ func (circuit *Circuit) Define(api frontend.API) error {
 		}
 	}
 
-	kzg_bls12377.Verify(api, circuit.Commitments[0], circuit.Proof, circuit.Random, circuit.VerifyKey)
+	kzg.Verify(api, circuit.Commitments[0], circuit.Proof, circuit.Random, circuit.VerifyKey)
 	return nil
 }
 
@@ -84,9 +83,9 @@ func GenWithness() (witness.Witness, error) {
 		return nil, err
 	}
 
-	assignment.VerifyKey.G1.Assign(&pk.SRS.G1[0])
-	assignment.VerifyKey.G2[0].Assign(&pk.SRS.G2[0])
-	assignment.VerifyKey.G2[1].Assign(&pk.SRS.G2[1])
+	assignment.VerifyKey.G1.Assign(&pk.Vk.G1)
+	assignment.VerifyKey.G2[0].Assign(&pk.Vk.G2[0])
+	assignment.VerifyKey.G2[1].Assign(&pk.Vk.G2[1])
 
 	mod := curveID.ScalarField()
 	fieldSize := len(mod.Bytes())

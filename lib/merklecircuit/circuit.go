@@ -5,7 +5,7 @@ import (
 	"github.com/consensys/gnark/std/hash"
 )
 
-const Depth = 10
+const Depth = 6
 
 // MerkleProof stores the path, the root hash and an helper for the Merkle proof.
 type Circuit struct {
@@ -16,7 +16,7 @@ type Circuit struct {
 
 // leafSum returns the hash created from data inserted to form a leaf.
 // Without domain separation.
-func leafSum(api frontend.API, h hash.Hash, data frontend.Variable) frontend.Variable {
+func leafSum(api frontend.API, h hash.FieldHasher, data frontend.Variable) frontend.Variable {
 
 	h.Reset()
 	h.Write(data)
@@ -27,7 +27,7 @@ func leafSum(api frontend.API, h hash.Hash, data frontend.Variable) frontend.Var
 
 // nodeSum returns the hash created from data inserted to form a leaf.
 // Without domain separation.
-func nodeSum(api frontend.API, h hash.Hash, a, b frontend.Variable) frontend.Variable {
+func nodeSum(api frontend.API, h hash.FieldHasher, a, b frontend.Variable) frontend.Variable {
 
 	h.Reset()
 	h.Write(a, b)
@@ -40,7 +40,7 @@ func nodeSum(api frontend.API, h hash.Hash, a, b frontend.Variable) frontend.Var
 // true if the first element of the proof set is a leaf of data in the Merkle
 // root. False is returned if the proof set or Merkle root is nil, and if
 // 'numLeaves' equals 0.
-func (mp *Circuit) VerifyProof(api frontend.API, h hash.Hash, root frontend.Variable) {
+func (mp *Circuit) VerifyProof(api frontend.API, h hash.FieldHasher, root frontend.Variable) {
 
 	depth := len(mp.Path) - 1
 	sum := leafSum(api, h, mp.Path[0])
@@ -50,14 +50,11 @@ func (mp *Circuit) VerifyProof(api frontend.API, h hash.Hash, root frontend.Vari
 	// The binary decomposition of the leaf index will be 	1 0 0 1 0 1 (little endian)
 	binLeaf := api.ToBinary(mp.Leaf, depth)
 
-	api.Println("leaf: ", mp.Leaf, binLeaf)
+	//api.Println("leaf: ", mp.Leaf, binLeaf)
 	for i := 1; i < len(mp.Path); i++ { // the size of the loop is fixed -> one circuit per size
 		d1 := api.Select(binLeaf[i-1], mp.Path[i], sum)
 		d2 := api.Select(binLeaf[i-1], sum, mp.Path[i])
-		update := nodeSum(api, h, d1, d2)
-		isZero := api.IsZero(mp.Path[i])
-		sum = api.Select(isZero, sum, update)
-		api.Println("path: ", i, mp.Path[i], sum, update)
+		sum = nodeSum(api, h, d1, d2)
 	}
 
 	// Compare our calculated Merkle root to the desired Merkle root.

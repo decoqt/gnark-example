@@ -11,8 +11,8 @@ import (
 	"github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/std/accumulator/merkle"
 	"github.com/consensys/gnark/std/hash/mimc"
+	"github.com/yydfjt/gnark-example/lib/merklecircuit"
 )
 
 var curveID = ecc.BN254
@@ -23,19 +23,13 @@ const (
 )
 
 var numNodes = 1<<5 + 8
-var proofIndex = 1<<5 + 1
+var proofIndex = 1<<5 + 5
 
 var depth int
 
 type Circuit struct {
-	M    merkle.MerkleProof
-	Leaf frontend.Variable
-}
-
-// pre allocate slice
-func (circuit *Circuit) allocate() error {
-	circuit.M.Path = make([]frontend.Variable, depth)
-	return nil
+	M    merklecircuit.Circuit
+	Root frontend.Variable `gnark:",public"`
 }
 
 func (circuit *Circuit) Define(api frontend.API) error {
@@ -43,7 +37,7 @@ func (circuit *Circuit) Define(api frontend.API) error {
 	if err != nil {
 		return err
 	}
-	circuit.M.VerifyProof(api, &h, circuit.Leaf)
+	circuit.M.VerifyProof(api, &h, circuit.Root)
 
 	return nil
 }
@@ -77,9 +71,8 @@ func GenWithness() (witness.Witness, error) {
 	fmt.Printf("pindex:%d, depth: %d\n", proofIndex, depth)
 
 	var assignment Circuit
-	assignment.Leaf = proofIndex
-	assignment.M.RootHash = merkleRoot
-	assignment.M.Path = make([]frontend.Variable, depth)
+	assignment.Root = merkleRoot
+	assignment.M.Leaf = proofIndex
 	for i := 0; i < depth; i++ {
 		assignment.M.Path[i] = merkleProof[i]
 	}

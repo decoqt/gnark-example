@@ -6,22 +6,21 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/std/algebra/sw_bls12377"
-	"github.com/consensys/gnark/std/commitments/kzg_bls12377"
+	"github.com/consensys/gnark/std/algebra/native/sw_bls12377"
 	"github.com/yydfjt/gnark-example/lib/kzg"
 )
 
 var curveID = ecc.BW6_761
 
 type Circuit struct {
-	Commitment sw_bls12377.G1Affine
-	Proof      kzg_bls12377.OpeningProof
-	Random     frontend.Variable `gnark:",public"`
-	VerifyKey  kzg_bls12377.VK   `gnark:",public"`
+	Proof      kzg.OpeningProof
+	Commitment sw_bls12377.G1Affine `gnark:",public"`
+	Challenge  frontend.Variable    `gnark:",public"`
+	VerifyKey  kzg.VK               `gnark:",public"`
 }
 
 func (circuit *Circuit) Define(api frontend.API) error {
-	kzg_bls12377.Verify(api, circuit.Commitment, circuit.Proof, circuit.Random, circuit.VerifyKey)
+	kzg.Verify(api, circuit.Commitment, circuit.Proof, circuit.Challenge, circuit.VerifyKey)
 	return nil
 }
 
@@ -56,13 +55,13 @@ func GenWithness() (witness.Witness, error) {
 	pf.ClaimedValue.BigInt(claimBig)
 
 	var assignment Circuit
-	assignment.VerifyKey.G1.Assign(&pk.SRS.G1[0])
-	assignment.VerifyKey.G2[0].Assign(&pk.SRS.G2[0])
-	assignment.VerifyKey.G2[1].Assign(&pk.SRS.G2[1])
+	assignment.VerifyKey.G1.Assign(&pk.Vk.G1)
+	assignment.VerifyKey.G2[0].Assign(&pk.Vk.G2[0])
+	assignment.VerifyKey.G2[1].Assign(&pk.Vk.G2[1])
 	assignment.Commitment.Assign(&com)
 	assignment.Proof.ClaimedValue = claimBig
 	assignment.Proof.H.Assign(&pf.H)
-	assignment.Random = rndBig
+	assignment.Challenge = rndBig
 
 	witness, err := frontend.NewWitness(&assignment, curveID.ScalarField())
 	if err != nil {
