@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/consensys/gnark/backend"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
@@ -28,7 +29,7 @@ func main() {
 		return
 	}
 
-	proof, err := groth16.Prove(r1cs, pk, witness)
+	proof, err := groth16.Prove(r1cs, pk, witness, backend.WithIcicleAcceleration())
 	if err != nil {
 		fmt.Printf("prove fail: %v\n", err)
 		return
