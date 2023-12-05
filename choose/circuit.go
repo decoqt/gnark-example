@@ -8,8 +8,8 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/hash"
-	"github.com/consensys/gnark/backend/hint"
 	"github.com/consensys/gnark/backend/witness"
+	"github.com/consensys/gnark/constraint/solver"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/hash/mimc"
 )
@@ -25,7 +25,7 @@ const (
 var max = new(big.Int).SetInt64(1<<Depth + 11)
 
 func init() {
-	hint.Register(ModHint)
+	solver.RegisterHint(ModHint)
 }
 
 func ModHint(_ *big.Int, inputs []*big.Int, results []*big.Int) error {

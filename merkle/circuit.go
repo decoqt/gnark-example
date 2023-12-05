@@ -11,8 +11,8 @@ import (
 	"github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/std/accumulator/merkle"
 	"github.com/consensys/gnark/std/hash/mimc"
+	"github.com/yydfjt/gnark-example/lib/merklecircuit"
 )
 
 var curveID = ecc.BN254
@@ -22,20 +22,14 @@ const (
 	Depth = 5
 )
 
-var numNodes = 1 << 5
-var proofIndex = 3
+var numNodes = 1<<5 + 8
+var proofIndex = 1<<5 + 5
 
 var depth int
 
 type Circuit struct {
-	M    merkle.MerkleProof
-	Leaf frontend.Variable
-}
-
-// pre allocate slice
-func (circuit *Circuit) allocate() error {
-	circuit.M.Path = make([]frontend.Variable, depth)
-	return nil
+	M    merklecircuit.Circuit
+	Root frontend.Variable `gnark:",public"`
 }
 
 func (circuit *Circuit) Define(api frontend.API) error {
@@ -43,7 +37,7 @@ func (circuit *Circuit) Define(api frontend.API) error {
 	if err != nil {
 		return err
 	}
-	circuit.M.VerifyProof(api, &h, circuit.Leaf)
+	circuit.M.VerifyProof(api, &h, circuit.Root)
 
 	return nil
 }
@@ -63,12 +57,12 @@ func GenWithness() (witness.Witness, error) {
 		buf.Write(b)
 	}
 
-	merkleRoot, merkleProof, numLeaves, err := merkletree.BuildReaderProof(&buf, hashID.New(), fieldSize, uint64(proofIndex))
+	merkleRoot, merkleProof, _, err := merkletree.BuildReaderProof(&buf, hashID.New(), fieldSize, uint64(proofIndex))
 	if err != nil {
 		return nil, err
 	}
 
-	verified := merkletree.VerifyProof(hashID.New(), merkleRoot, merkleProof, uint64(proofIndex), numLeaves)
+	verified := merkletree.VerifyProof(hashID.New(), merkleRoot, merkleProof, uint64(proofIndex))
 	if !verified {
 		fmt.Printf("The merkle proof in plain go should pass")
 	}
@@ -77,9 +71,8 @@ func GenWithness() (witness.Witness, error) {
 	fmt.Printf("pindex:%d, depth: %d\n", proofIndex, depth)
 
 	var assignment Circuit
-	assignment.Leaf = proofIndex
-	assignment.M.RootHash = merkleRoot
-	assignment.M.Path = make([]frontend.Variable, depth)
+	assignment.Root = merkleRoot
+	assignment.M.Leaf = proofIndex
 	for i := 0; i < depth; i++ {
 		assignment.M.Path[i] = merkleProof[i]
 	}
