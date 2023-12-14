@@ -16,7 +16,7 @@ import (
 var curveID = ecc.BLS12_377
 var hashID = hash.MIMC_BLS12_377
 
-const Max = 1000
+const Max = 32
 
 type Circuit struct {
 	Length frontend.Variable `gnark:",public"`
@@ -38,8 +38,8 @@ func (c *Circuit) Define(api frontend.API) error {
 	for i := 0; i < Max; i++ {
 		h.Reset()
 		h.Write(c.Seed)
-		c.Seed = h.Sum()
-		tmp := api.Mul(c.Seed, coe)
+		h.Write(i)
+		tmp := api.Mul(h.Sum(), coe)
 		sum = api.Add(sum, tmp)
 
 		tmp = api.Sub(i+1, c.Length)
@@ -68,7 +68,6 @@ func GenWithness() (witness.Witness, error) {
 	assignment.Seed = seedbig
 
 	h := hashID.New()
-	seedbyte := seed.Marshal()
 
 	length := rand.Intn(Max)
 	assignment.Length = length
@@ -77,9 +76,12 @@ func GenWithness() (witness.Witness, error) {
 
 	for i := 0; i < length; i++ {
 		h.Reset()
-		h.Write(seedbyte)
-		seedbyte = h.Sum(nil)
-		tmp.SetBytes(seedbyte)
+		h.Write(seed.Marshal())
+		val := big.NewInt(int64(i))
+		buf := make([]byte, h.Size()-len(val.Bytes()))
+		buf = append(buf, val.Bytes()...)
+		h.Write(buf)
+		tmp.SetBytes(h.Sum(nil))
 		tmp.Mul(&tmp, &coe)
 		sum.Add(&sum, &tmp)
 
