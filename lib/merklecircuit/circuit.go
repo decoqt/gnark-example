@@ -5,7 +5,7 @@ import (
 	"github.com/consensys/gnark/std/hash"
 )
 
-const Depth = 6
+const Depth = 32
 
 // MerkleProof stores the path, the root hash and an helper for the Merkle proof.
 type Circuit struct {
@@ -30,7 +30,7 @@ func leafSum(api frontend.API, h hash.FieldHasher, data frontend.Variable) front
 func nodeSum(api frontend.API, h hash.FieldHasher, a, b frontend.Variable) frontend.Variable {
 
 	h.Reset()
-	h.Write(a, b)
+	h.Write(a)
 	res := h.Sum()
 
 	return res

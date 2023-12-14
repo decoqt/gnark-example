@@ -27,6 +27,11 @@ bls/bls
 kzg/kzg
 choose/choose
 acc/acc
+plonk/plonk
+recursion/recursion
+lagrange/lagrange
+recursion-emulate/recursion-emulate
+
 
 *.log
 *.sh

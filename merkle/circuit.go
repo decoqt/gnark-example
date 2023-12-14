@@ -15,15 +15,15 @@ import (
 	"github.com/yydfjt/gnark-example/lib/merklecircuit"
 )
 
-var curveID = ecc.BN254
-var hashID = hash.MIMC_BN254
+var curveID = ecc.BLS12_377
+var hashID = hash.MIMC_BLS12_377
 
 const (
-	Depth = 5
+	Depth = merklecircuit.Depth
 )
 
-var numNodes = 1<<5 + 8
-var proofIndex = 1<<5 + 5
+var numNodes = 1<<10 + 8
+var proofIndex = 1<<10 + 5
 
 var depth int
 
@@ -73,8 +73,12 @@ func GenWithness() (witness.Witness, error) {
 	var assignment Circuit
 	assignment.Root = merkleRoot
 	assignment.M.Leaf = proofIndex
-	for i := 0; i < depth; i++ {
-		assignment.M.Path[i] = merkleProof[i]
+	for i := 0; i < Depth+1; i++ {
+		if i < depth {
+			assignment.M.Path[i] = merkleProof[i]
+		} else {
+			assignment.M.Path[i] = 0
+		}
 	}
 
 	witness, err := frontend.NewWitness(&assignment, curveID.ScalarField())
