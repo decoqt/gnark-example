@@ -6,7 +6,7 @@ import (
 	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/scs"
-	"github.com/consensys/gnark/test"
+	"github.com/consensys/gnark/test/unsafekzg"
 )
 
 func main() {
@@ -23,13 +23,13 @@ func main() {
 		return
 	}
 
-	srs, err := test.NewKZGSRS(r1cs)
+	srs, srsl, err := unsafekzg.NewSRS(r1cs)
 	if err != nil {
 		fmt.Printf("kzg fail: %v\n", err)
 		return
 	}
 
-	pk, vk, err := plonk.Setup(r1cs, srs)
+	pk, vk, err := plonk.Setup(r1cs, srs, srsl)
 	if err != nil {
 		fmt.Printf("setup fail: %v\n", err)
 		return

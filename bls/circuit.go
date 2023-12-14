@@ -25,11 +25,12 @@ type Circuit struct {
 func (circuit *Circuit) Define(api frontend.API) error {
 	for i := 1; i < inputSize; i++ {
 		circuit.Input[0].AddAssign(api, circuit.Input[i])
-		circuit.Input2[0].AddAssign(api, circuit.Input2[i])
+		circuit.Input2[0].P.AddAssign(api, circuit.Input2[i].P)
+
 	}
 
 	circuit.Sum.AssertIsEqual(api, circuit.Input[0])
-	circuit.Sum2.AssertIsEqual(api, circuit.Input2[0])
+	circuit.Sum2.P.AssertIsEqual(api, circuit.Input2[0].P)
 	return nil
 }
 
@@ -50,11 +51,11 @@ func GenWithness() (witness.Witness, error) {
 			return nil, err
 		}
 		res2.Add(&res2, &g2)
-		assignment.Input2[i].Assign(&g2)
+		assignment.Input2[i] = sw_bls12377.NewG2Affine(g2)
 	}
 
 	assignment.Sum.Assign(&res)
-	assignment.Sum2.Assign(&res2)
+	assignment.Sum2 = sw_bls12377.NewG2Affine(res2)
 
 	witness, err := frontend.NewWitness(&assignment, curveID.ScalarField())
 	if err != nil {

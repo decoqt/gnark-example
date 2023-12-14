@@ -56,8 +56,8 @@ func GenWithness() (witness.Witness, error) {
 
 	var assignment Circuit
 	assignment.VerifyKey.G1.Assign(&pk.Vk.G1)
-	assignment.VerifyKey.G2[0].Assign(&pk.Vk.G2[0])
-	assignment.VerifyKey.G2[1].Assign(&pk.Vk.G2[1])
+	assignment.VerifyKey.G2[0] = sw_bls12377.NewG2Affine(pk.Vk.G2[0])
+	assignment.VerifyKey.G2[1] = sw_bls12377.NewG2Affine(pk.Vk.G2[1])
 	assignment.Commitment.Assign(&com)
 	assignment.Proof.ClaimedValue = claimBig
 	assignment.Proof.H.Assign(&pf.H)

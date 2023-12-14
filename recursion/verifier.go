@@ -90,8 +90,8 @@ func (vk *VerifyingKey) Assign(_ovk groth16.VerifyingKey) {
 	var deltaNeg, gammaNeg bls12377.G2Affine
 	deltaNeg.Neg(&ovk.G2.Delta)
 	gammaNeg.Neg(&ovk.G2.Gamma)
-	vk.G2.DeltaNeg.Assign(&deltaNeg)
-	vk.G2.GammaNeg.Assign(&gammaNeg)
+	vk.G2.DeltaNeg = sw_bls12377.NewG2Affine(deltaNeg)
+	vk.G2.GammaNeg = sw_bls12377.NewG2Affine(gammaNeg)
 
 }
 
@@ -117,6 +117,6 @@ func (proof *Proof) Assign(_oproof groth16.Proof) {
 	}
 	proof.Ar.Assign(&oproof.Ar)
 	proof.Krs.Assign(&oproof.Krs)
-	proof.Bs.Assign(&oproof.Bs)
+	proof.Bs = sw_bls12377.NewG2Affine(oproof.Bs)
 
 }

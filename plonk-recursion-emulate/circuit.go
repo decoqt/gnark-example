@@ -8,14 +8,14 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/hash"
-	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra"
 	"github.com/consensys/gnark/std/algebra/native/sw_bls12377"
 	"github.com/consensys/gnark/std/hash/mimc"
 	"github.com/consensys/gnark/std/math/emulated"
-	stdgroth16 "github.com/consensys/gnark/std/recursion/groth16"
+	stdplonk "github.com/consensys/gnark/std/recursion/plonk"
 )
 
 var innerID = ecc.BLS12_377
@@ -61,21 +61,16 @@ func (c *inCircuit) Define(api frontend.API) error {
 }
 
 type outCircuit[FR emulated.FieldParams, G1El algebra.G1ElementT, G2El algebra.G2ElementT, GtEl algebra.GtElementT] struct {
-	Proof        stdgroth16.Proof[G1El, G2El]
-	VerifyingKey stdgroth16.VerifyingKey[G1El, G2El, GtEl] `gnark:",public"`
-	InnerWitness stdgroth16.Witness[FR]                    `gnark:",public"`
+	Proof        stdplonk.Proof[FR, G1El, G2El]
+	VerifyingKey stdplonk.VerifyingKey[FR, G1El, G2El] `gnark:",public"`
+	InnerWitness stdplonk.Witness[FR]                  `gnark:",public"`
 }
 
 func (c *outCircuit[FR, G1El, G2El, GtEl]) Define(api frontend.API) error {
-	curve, err := algebra.GetCurve[FR, G1El](api)
+	verifier, err := stdplonk.NewVerifier[FR, G1El, G2El, GtEl](api)
 	if err != nil {
-		return fmt.Errorf("new curve: %w", err)
+		return fmt.Errorf("new verifier: %w", err)
 	}
-	pairing, err := algebra.GetPairing[G1El, G2El, GtEl](api)
-	if err != nil {
-		return fmt.Errorf("get pairing: %w", err)
-	}
-	verifier := stdgroth16.NewVerifier(curve, pairing)
 	err = verifier.AssertProof(c.VerifyingKey, c.Proof, c.InnerWitness)
 	return err
 }
@@ -125,16 +120,16 @@ func GenWithness() (witness.Witness, error) {
 	return witness, nil
 }
 
-func GenOutWitness(innerWitness witness.Witness, innerProof groth16.Proof, innerVK groth16.VerifyingKey) (witness.Witness, error) {
-	circuitVk, err := stdgroth16.ValueOfVerifyingKey[sw_bls12377.G1Affine, sw_bls12377.G2Affine, sw_bls12377.GT](innerVK)
+func GenOutWitness(innerWitness witness.Witness, innerProof plonk.Proof, innerVK plonk.VerifyingKey) (witness.Witness, error) {
+	circuitVk, err := stdplonk.ValueOfVerifyingKey[sw_bls12377.ScalarField, sw_bls12377.G1Affine, sw_bls12377.G2Affine](innerVK)
 	if err != nil {
 		panic(err)
 	}
-	circuitWitness, err := stdgroth16.ValueOfWitness[sw_bls12377.ScalarField](innerWitness)
+	circuitWitness, err := stdplonk.ValueOfWitness[sw_bls12377.ScalarField](innerWitness)
 	if err != nil {
 		panic(err)
 	}
-	circuitProof, err := stdgroth16.ValueOfProof[sw_bls12377.G1Affine, sw_bls12377.G2Affine](innerProof)
+	circuitProof, err := stdplonk.ValueOfProof[sw_bls12377.ScalarField, sw_bls12377.G1Affine, sw_bls12377.G2Affine](innerProof)
 	if err != nil {
 		panic(err)
 	}

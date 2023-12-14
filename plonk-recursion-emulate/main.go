@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 
-	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"github.com/consensys/gnark/frontend/cs/scs"
 	"github.com/consensys/gnark/std/algebra/native/sw_bls12377"
-	stdgroth16 "github.com/consensys/gnark/std/recursion/groth16"
+	stdplonk "github.com/consensys/gnark/std/recursion/plonk"
+	"github.com/consensys/gnark/test/unsafekzg"
 )
 
 func main() {
@@ -18,19 +20,25 @@ func main() {
 	}
 
 	var circuit inCircuit
-	incs, err := frontend.Compile(innerID.ScalarField(), r1cs.NewBuilder, &circuit)
+	incs, err := frontend.Compile(innerID.ScalarField(), scs.NewBuilder, &circuit)
 	if err != nil {
 		fmt.Printf("compile fail: %v\n", err)
 		return
 	}
 
-	inpk, invk, err := groth16.Setup(incs)
+	kzgsrs, kzgsrsl, err := unsafekzg.NewSRS(incs)
+	if err != nil {
+		fmt.Printf("kzg fail: %v\n", err)
+		return
+	}
+
+	inpk, invk, err := plonk.Setup(incs, kzgsrs, kzgsrsl)
 	if err != nil {
 		fmt.Printf("setup fail: %v\n", err)
 		return
 	}
 
-	inproof, err := groth16.Prove(incs, inpk, witness)
+	inproof, err := plonk.Prove(incs, inpk, witness, stdplonk.GetNativeProverOptions(ecc.BW6_761.ScalarField(), ecc.BLS12_377.ScalarField()))
 	if err != nil {
 		fmt.Printf("prove fail: %v\n", err)
 		return
@@ -42,7 +50,7 @@ func main() {
 		return
 	}
 
-	err = groth16.Verify(inproof, invk, publicWitness)
+	err = plonk.Verify(inproof, invk, publicWitness, stdplonk.GetNativeVerifierOptions(ecc.BW6_761.ScalarField(), ecc.BLS12_377.ScalarField()))
 	if err != nil {
 		fmt.Printf("verification fail: %v\n", err)
 		return
@@ -50,16 +58,23 @@ func main() {
 	fmt.Printf("verification inner succeded\n")
 
 	outerCircuit := &outCircuit[sw_bls12377.ScalarField, sw_bls12377.G1Affine, sw_bls12377.G2Affine, sw_bls12377.GT]{
-		InnerWitness: stdgroth16.PlaceholderWitness[sw_bls12377.ScalarField](incs),
-		VerifyingKey: stdgroth16.PlaceholderVerifyingKey[sw_bls12377.G1Affine, sw_bls12377.G2Affine, sw_bls12377.GT](incs),
+		InnerWitness: stdplonk.PlaceholderWitness[sw_bls12377.ScalarField](incs),
+		Proof:        stdplonk.PlaceholderProof[sw_bls12377.ScalarField, sw_bls12377.G1Affine, sw_bls12377.G2Affine](incs),
+		VerifyingKey: stdplonk.PlaceholderVerifyingKey[sw_bls12377.ScalarField, sw_bls12377.G1Affine, sw_bls12377.G2Affine](incs),
 	}
-	outcs, err := frontend.Compile(outerID.ScalarField(), r1cs.NewBuilder, outerCircuit)
+	outcs, err := frontend.Compile(outerID.ScalarField(), scs.NewBuilder, outerCircuit)
 	if err != nil {
 		fmt.Printf("out compile fail: %v\n", err)
 		return
 	}
 
-	outpk, outvk, err := groth16.Setup(outcs)
+	outsrs, outsrsl, err := unsafekzg.NewSRS(outcs)
+	if err != nil {
+		fmt.Printf("kzg fail: %v\n", err)
+		return
+	}
+
+	outpk, outvk, err := plonk.Setup(outcs, outsrs, outsrsl)
 	if err != nil {
 		fmt.Printf("out setup fail: %v\n", err)
 		return
@@ -71,7 +86,7 @@ func main() {
 		return
 	}
 
-	outproof, err := groth16.Prove(outcs, outpk, outw)
+	outproof, err := plonk.Prove(outcs, outpk, outw)
 	if err != nil {
 		fmt.Printf("out prove fail: %v\n", err)
 		return
@@ -83,7 +98,7 @@ func main() {
 		return
 	}
 
-	err = groth16.Verify(outproof, outvk, outpublicWitness)
+	err = plonk.Verify(outproof, outvk, outpublicWitness)
 	if err != nil {
 		fmt.Printf("out verification fail: %v\n", err)
 		return
